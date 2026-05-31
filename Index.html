@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1c1c1e">
+    <title>Barberman.id - POS System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        'barber-black': '#1c1c1e', 'barber-dark-gray': '#2c2c2e',
+                        'barber-light-gray': '#f2f2f7', 'barber-red': '#ff3b30',
+                        'barber-white': '#ffffff', 'ios-blue': '#007aff', 'ios-green': '#34c759'
+                    },
+                    boxShadow: { 'ios': '0 4px 12px rgba(0, 0, 0, 0.08)', 'ios-lg': '0 10px 30px rgba(0, 0, 0, 0.1)' }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { -webkit-font-smoothing: antialiased; background-color: #f2f2f7; color: #1c1c1e; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        input[type="text"], input[type="number"], input[type="email"], input[type="password"], select, textarea {
+            background-color: #ffffff; border: 1px solid #e5e5ea; border-radius: 10px; padding: 12px 16px; font-size: 16px; 
+            transition: border-color 0.2s, box-shadow 0.2s; appearance: none; width: 100%;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #ff3b30; box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.2); }
+        .nav-item { color: #9ca3af; transition: all 0.2s; }
+        .nav-item:hover { color: #ffffff; background-color: rgba(255,255,255,0.1); }
+        .nav-item.active { color: #ffffff; background-color: #ff3b30; box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3); }
+        .mobile-nav-item .icon-container { color: #9ca3af; transition: all 0.2s; }
+        .mobile-nav-item.active { color: #ffffff; }
+        .mobile-nav-item.active .icon-container { color: #ff3b30; transform: scale(1.1); }
+        select { background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231c1c1e%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E"); background-repeat: no-repeat; background-position: right 1rem top 50%; background-size: 0.65rem auto; }
+        .peer:checked + div .overlay-check { opacity: 1; }
+        .btn-google { background-color: white; color: #757575; border: 1px solid #ddd; transition: background-color 0.2s; }
+        .btn-google:hover { background-color: #f1f1f1; color: #333; }
+    </style>
+</head>
+<body class="bg-barber-light-gray h-screen flex overflow-hidden font-sans text-barber-black md:p-4 gap-4 relative">
+
+    <!-- OFFLINE BANNER -->
+    <div id="offline-banner" class="hidden fixed top-0 left-0 right-0 bg-red-600 text-white text-center py-2 text-sm font-bold z-[200] transition-transform">
+        <i class="fa-solid fa-wifi-slash mr-2"></i> Anda sedang Offline. Data disimpan secara lokal.
+    </div>
+
+    <!-- LOGIN / REGISTER PAGE -->
+    <div id="auth-page" class="fixed inset-0 z-[100] bg-barber-black flex items-start md:items-center justify-center p-4 md:p-8 overflow-y-auto">
+        <div class="bg-barber-dark-gray w-full max-w-md p-6 md:p-8 rounded-3xl shadow-ios-lg border border-gray-700 text-center my-auto">
+            <div class="w-20 h-20 bg-barber-red rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-red-900/20">
+                <i class="fa-solid fa-scissors text-white text-3xl"></i>
+            </div>
+            <div class="flex p-1 bg-gray-800 rounded-xl mb-6">
+                <button onclick="toggleAuthMode('login')" id="tab-login" class="flex-1 py-2 text-sm font-bold rounded-lg bg-gray-700 text-white shadow-sm transition-all">Masuk</button>
+                <button onclick="toggleAuthMode('register')" id="tab-register" class="flex-1 py-2 text-sm font-bold rounded-lg text-gray-400 hover:text-white transition-all">Daftar</button>
+            </div>
+            <h1 class="text-2xl font-bold text-white mb-2">Selamat Datang</h1>
+            <p class="text-gray-400 text-sm mb-6">Kelola bisnis barbershop Anda dengan mudah.</p>
+            <button onclick="handleGoogleLogin()" class="w-full btn-google font-bold py-3 rounded-xl transition-all shadow-sm mb-4 flex items-center justify-center gap-3">
+                <i class="fa-brands fa-google text-lg"></i>
+                <span id="google-btn-text">Masuk dengan Google</span>
+            </button>
+            <div class="flex items-center mb-6">
+                <div class="flex-grow border-t border-gray-700"></div>
+                <span class="flex-shrink-0 mx-4 text-gray-500 text-xs">ATAU EMAIL</span>
+                <div class="flex-grow border-t border-gray-700"></div>
+            </div>
+            <form onsubmit="handleAuthSubmit(event)" class="space-y-4 text-left">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1 ml-1">Email</label>
+                    <input type="email" id="auth-email" required placeholder="nama@email.com" class="w-full bg-barber-black text-white border-gray-700 focus:border-barber-red">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1 ml-1">Password</label>
+                    <input type="password" id="auth-password" required placeholder="••••••••" class="w-full bg-barber-black text-white border-gray-700 focus:border-barber-red">
+                </div>
+                <button type="submit" id="auth-submit-btn" class="w-full bg-barber-red hover:bg-red-600 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-red-900/30 mt-2">
+                    Masuk
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- FLOATING SIDEBAR (Desktop/iPad) -->
+    <!-- Fixed Height calc(100vh - 2rem) to fit inside padding -->
+    <aside class="hidden md:flex flex-col w-64 bg-barber-black shadow-ios-lg rounded-3xl z-20 overflow-hidden transition-transform duration-300 ease-in-out border border-gray-800 h-[calc(100vh-2rem)] self-center" id="sidebar">
+        <div class="p-6 flex items-center justify-center border-b border-gray-800 flex-shrink-0">
+            <div class="flex flex-col items-center">
+                <div class="w-14 h-14 bg-barber-red rounded-full flex items-center justify-center mb-2 shadow-md border-2 border-barber-dark-gray">
+                    <i class="fa-solid fa-scissors text-white text-xl"></i>
+                </div>
+                <h1 class="text-xl font-bold tracking-tight text-white">Barberman<span class="text-barber-red">.id</span></h1>
+            </div>
+        </div>
+        <!-- Scrollable Nav -->
+        <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1.5 no-scrollbar">
+            <a href="#" onclick="switchTab('kasir')" class="nav-item active flex items-center px-4 py-3 rounded-xl transition-colors" data-tab="kasir">
+                <div class="w-6 text-center mr-3"><i class="fa-solid fa-calculator"></i></div><span class="font-medium text-sm">Kasir</span>
+            </a>
+            <a href="#" onclick="switchTab('pembayaran')" class="nav-item flex items-center px-4 py-3 rounded-xl transition-colors" data-tab="pembayaran">
+                <div class="w-6 text-center mr-3"><i class="fa-solid fa-receipt"></i></div><span class="font-medium text-sm">Pembayaran</span>
+            </a>
+            <a href="#" onclick="switchTab('laporan')" class="nav-item flex items-center px-4 py-3 rounded-xl transition-colors" data-tab="laporan">
+                <div class="w-6 text-center mr-3"><i class="fa-solid fa-chart-pie"></i></div><span class="font-medium text-sm">Laporan</span>
+            </a>
+            <a href="#" onclick="switchTab('absensi')" class="nav-item flex items-center px-4 py-3 rounded-xl transition-colors" data-tab="absensi">
+                <div class="w-6 text-center mr-3"><i class="fa-solid fa-user-clock"></i></div><span class="font-medium text-sm">Absensi</span>
+            </a>
+            <a href="#" onclick="switchTab('pengaturan')" class="nav-item flex items-center px-4 py-3 rounded-xl transition-colors" data-tab="pengaturan">
+                <div class="w-6 text-center mr-3"><i class="fa-solid fa-gear"></i></div><span class="font-medium text-sm">Pengaturan</span>
+            </a>
+            <div class="h-px bg-gray-800 my-2 mx-2"></div>
+            <a href="#" onclick="switchTab('support')" class="nav-item flex items-center px-4 py-3 rounded-xl transition-colors" data-tab="support">
+                <div class="w-6 text-center mr-3"><i class="fa-solid fa-headset"></i></div><span class="font-medium text-sm">Support</span>
+            </a>
+        </nav>
+        <!-- Fixed Profile Footer -->
+        <div class="p-4 border-t border-gray-800 flex-shrink-0">
+            <a href="#" onclick="switchTab('profile')" class="flex items-center p-2 rounded-xl hover:bg-gray-800 transition-colors group">
+                <img id="sidebar-img" src="https://placehold.co/100x100/ff3b30/ffffff?text=U" alt="User" class="w-10 h-10 rounded-full border-2 border-gray-700 group-hover:border-barber-red transition-colors">
+                <div class="ml-3">
+                    <p class="text-sm font-bold text-white" id="sidebar-name">Memuat...</p>
+                    <p class="text-xs text-gray-400">Lihat Profil</p>
+                </div>
+            </a>
+        </div>
+    </aside>
+
+    <!-- MOBILE FLOATING PROFILE -->
+    <div class="md:hidden fixed top-4 right-4 z-50">
+        <div class="relative">
+            <button id="mobile-profile-btn" onclick="toggleMobileProfileMenu()" class="w-10 h-10 rounded-full border-[2px] border-white shadow-ios overflow-hidden focus:outline-none transition-transform active:scale-95 bg-gray-800">
+                <img id="mobile-profile-img" src="https://placehold.co/100x100/ff3b30/ffffff?text=U" alt="User" class="w-full h-full object-cover">
+            </button>
+            <div id="mobile-profile-menu" class="hidden absolute right-0 mt-2 w-48 bg-barber-dark-gray rounded-xl shadow-ios-lg border border-gray-700 py-2 origin-top-right transition-all">
+                <a href="#" onclick="switchTab('profile'); toggleMobileProfileMenu()" class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"><i class="fa-regular fa-user mr-2 w-4 text-center"></i> Profil Saya</a>
+                <a href="#" onclick="switchTab('pengaturan'); toggleMobileProfileMenu()" class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"><i class="fa-solid fa-gear mr-2 w-4 text-center"></i> Pengaturan</a>
+                <div class="h-px bg-gray-700 my-1"></div>
+                <a href="#" onclick="handleLogout()" class="block px-4 py-2.5 text-sm text-barber-red hover:bg-red-900/20 font-medium transition-colors"><i class="fa-solid fa-arrow-right-from-bracket mr-2 w-4 text-center"></i> Keluar</a>
+            </div>
+        </div>
+    </div>
+
+    <main class="flex-1 flex flex-col h-full w-full relative overflow-hidden pb-28 md:pb-0">
+        <div class="flex-1 overflow-y-auto p-4 md:p-2 lg:p-6 no-scrollbar" id="main-content">
+            
+            <div class="md:hidden flex items-center justify-center mb-6 mt-4 relative">
+                <div class="flex items-center">
+                    <div class="w-8 h-8 bg-barber-black rounded-full flex items-center justify-center mr-2">
+                        <i class="fa-solid fa-scissors text-white text-xs"></i>
+                    </div>
+                    <h1 class="text-xl font-bold tracking-tight">Barberman<span class="text-barber-red">.id</span></h1>
+                </div>
+            </div>
+
+            <!-- ================= TAB KASIR ================= -->
+            <div id="tab-kasir" class="tab-content block max-w-4xl mx-auto w-full">
+                <div class="bg-barber-white rounded-3xl shadow-ios p-5 md:p-8 mb-6 relative overflow-hidden">
+                    <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
+                        <h2 class="text-2xl font-bold">Buat Orderan</h2>
+                        <div class="text-sm text-gray-500 font-medium bg-gray-50 px-3 py-1 rounded-full" id="current-date"></div>
+                    </div>
+                    <form id="kasir-form" onsubmit="event.preventDefault(); processTransaction();" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div><label class="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">No. Antrian</label><input type="number" id="k-antrian" required class="w-full bg-gray-50" placeholder="Cth: 01"></div>
+                            <div><label class="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">Nama Customer</label><input type="text" id="k-nama" required class="w-full bg-gray-50" placeholder="Masukkan nama"></div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2 ml-1">Pilih Capster</label>
+                            <div class="flex overflow-x-auto gap-4 no-scrollbar pb-2 pt-1 px-1" id="k-capster-list">
+                                <!-- Empty state handled by JS -->
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">Paket Haircut</label>
+                            <select id="k-paket" required class="w-full bg-gray-50" onchange="calculateTotal()">
+                                <option value="" disabled selected data-price="0">Pilih Paket...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2 ml-1">Produk Tambahan <span class="text-gray-400 font-normal">(Opsional)</span></label>
+                            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3" id="k-produk-list"></div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5 ml-1">Catatan Khusus</label>
+                            <textarea id="k-catatan" rows="2" class="w-full bg-gray-50 resize-none" placeholder="Cth: Fade tinggi..."></textarea>
+                        </div>
+                        <div class="bg-gray-50 rounded-2xl p-5 border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div class="w-full md:w-auto text-center md:text-left">
+                                <span class="text-gray-500 font-medium text-sm block mb-1">Total Tagihan Sementara</span>
+                                <span class="text-3xl font-bold text-barber-red tracking-tight" id="k-total-display">Rp 0</span>
+                            </div>
+                            <button type="button" onclick="processTransaction()" class="w-full md:w-1/2 bg-barber-black text-white font-bold py-4 rounded-xl shadow-md hover:bg-gray-800 hover:-translate-y-0.5 transition-all flex justify-center items-center text-lg">
+                                <span>Buat Orderan</span><i class="fa-solid fa-arrow-right ml-3"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ================= TAB PEMBAYARAN ================= -->
+            <div id="tab-pembayaran" class="tab-content hidden max-w-4xl mx-auto w-full">
+                <div class="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
+                    <h2 class="text-2xl font-bold px-2">Daftar Tagihan & Pembayaran</h2>
+                    <div class="bg-white p-1 rounded-xl shadow-sm border border-gray-100 flex text-sm font-medium self-start">
+                        <button class="px-4 py-1.5 rounded-lg bg-barber-black text-white shadow-sm transition-colors" onclick="filterTrx('semua', this)">Semua</button>
+                        <button class="px-4 py-1.5 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors" onclick="filterTrx('lunas', this)">Lunas</button>
+                        <button class="px-4 py-1.5 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors" onclick="filterTrx('belum', this)">Belum</button>
+                    </div>
+                </div>
+                <div class="space-y-4" id="transaction-list"></div>
+            </div>
+
+            <!-- ================= TAB LAPORAN ================= -->
+            <div id="tab-laporan" class="tab-content hidden max-w-5xl mx-auto w-full space-y-6">
+                <h2 class="text-2xl font-bold mb-2 px-2">Laporan & Analitik</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden group">
+                        <div class="relative z-10"><div class="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Total Transaksi</div><div class="text-3xl font-black text-barber-black" id="rep-total-trx">0</div></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden group">
+                        <div class="relative z-10"><div class="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Pemasukan Hari Ini</div><div class="text-2xl font-black text-barber-black truncate tracking-tight" id="rep-today-income">Rp 0</div></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-3xl shadow-sm border-t-4 border-t-barber-red relative">
+                        <div class="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Top Capster</div>
+                        <div class="text-2xl font-black text-barber-black flex items-center"><span id="rep-top-capster">-</span><i class="fa-solid fa-award text-yellow-400 ml-2 text-xl"></i></div>
+                    </div>
+                    <div class="bg-gradient-to-br from-barber-black to-gray-800 text-white p-5 rounded-3xl shadow-ios relative overflow-hidden">
+                        <div class="relative z-10"><div class="text-gray-300 text-xs font-bold uppercase tracking-wider mb-2">Total Keuntungan (Bln)</div><div class="text-2xl font-black text-white truncate tracking-tight" id="rep-monthly-income">Rp 0</div></div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-gray-800">Tren Mingguan</h3></div><div class="relative h-56"><canvas id="weeklyChart"></canvas></div></div>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100"><h3 class="font-bold text-gray-800 mb-4">Proporsi Layanan</h3><div class="relative h-56 flex justify-center"><canvas id="serviceChart"></canvas></div></div>
+                </div>
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="p-5 border-b border-gray-100"><h3 class="font-bold text-gray-800">Transaksi Selesai Terakhir</h3></div>
+                    <div class="overflow-x-auto"><table class="w-full text-sm text-left"><thead class="text-xs text-gray-500 bg-gray-50 uppercase border-b border-gray-100"><tr><th class="px-6 py-4 rounded-tl-lg">Waktu</th><th class="px-6 py-4">Customer</th><th class="px-6 py-4">Layanan</th><th class="px-6 py-4 text-right">Nilai</th></tr></thead><tbody id="recent-trx-table" class="divide-y divide-gray-100"></tbody></table></div>
+                </div>
+            </div>
+
+            <!-- ================= TAB ABSENSI ================= -->
+            <div id="tab-absensi" class="tab-content hidden max-w-3xl mx-auto w-full">
+                <h2 class="text-2xl font-bold mb-6 px-2">Sistem Operasional & Absensi</h2>
+                <div class="bg-white p-6 rounded-3xl shadow-ios mb-6 flex flex-col md:flex-row justify-between items-center border-l-4 border-l-barber-red gap-4">
+                    <div><h3 class="font-bold text-lg text-barber-black">Status Toko</h3><p class="text-sm text-gray-500" id="store-time-info">Buka: 09:00 WIB | Tutup: -</p></div>
+                    <label class="flex items-center cursor-pointer bg-gray-50 py-2 px-3 rounded-full border border-gray-200"><span class="mr-3 font-bold text-gray-500 text-sm w-16 text-right" id="store-status-text">CLOSED</span><div class="relative"><input type="checkbox" id="store-toggle" class="sr-only" onchange="toggleStoreStatus()"><div class="block bg-gray-300 w-14 h-8 rounded-full transition-colors duration-300" id="store-toggle-bg"></div><div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full shadow-sm transition-transform duration-300 ease-in-out" id="store-toggle-dot"></div></div></label>
+                </div>
+                <div class="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden mb-6">
+                    <h3 class="font-bold text-lg mb-5">Input Kehadiran</h3>
+                    <form id="absensi-form" onsubmit="event.preventDefault(); submitAbsen();" class="space-y-5">
+                        <div><label class="block text-sm font-semibold text-gray-700 mb-2 ml-1">Pilih Staff</label><select id="a-nama" required class="w-full bg-gray-50"><option value="" disabled selected>Pilih Nama...</option></select></div>
+                        <div><label class="block text-sm font-semibold text-gray-700 mb-2 ml-1">Keterangan</label><div class="grid grid-cols-2 gap-3"><label class="cursor-pointer"><input type="radio" name="a-status" value="Hadir" class="peer sr-only" required checked><div class="text-center py-3 px-4 rounded-xl border-2 border-transparent bg-gray-50 text-gray-500 peer-checked:bg-white peer-checked:border-ios-green peer-checked:text-ios-green font-bold transition-all shadow-sm"><i class="fa-solid fa-door-open mr-1"></i> Masuk</div></label><label class="cursor-pointer"><input type="radio" name="a-status" value="Pulang" class="peer sr-only" required><div class="text-center py-3 px-4 rounded-xl border-2 border-transparent bg-gray-50 text-gray-500 peer-checked:bg-white peer-checked:border-barber-red peer-checked:text-barber-red font-bold transition-all shadow-sm"><i class="fa-solid fa-door-closed mr-1"></i> Pulang</div></label></div></div>
+                        <button type="submit" class="w-full bg-barber-black text-white font-bold py-3.5 rounded-xl hover:bg-gray-800 transition-colors mt-2 shadow-md">Simpan Data</button>
+                    </form>
+                </div>
+                <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 px-2">Riwayat Hari Ini</h4>
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-100 mb-8" id="attendance-list"></div>
+            </div>
+
+            <!-- ================= TAB PENGATURAN (Data Master) ================= -->
+            <div id="tab-pengaturan" class="tab-content hidden max-w-4xl mx-auto w-full space-y-6 pb-8">
+                <h2 class="text-2xl font-bold px-2">Data Master Toko</h2>
+                
+                <!-- Install PWA Section -->
+                <div id="install-section" class="bg-gradient-to-r from-barber-black to-gray-800 p-6 rounded-3xl shadow-sm border border-gray-700 text-white flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-2xl"><i class="fa-solid fa-mobile-screen-button"></i></div>
+                        <div>
+                            <h3 class="font-bold text-lg">Instal Aplikasi</h3>
+                            <p class="text-sm text-gray-400">Pasang Barberman.id di Home Screen untuk akses cepat dan mode offline penuh.</p>
+                        </div>
+                    </div>
+                    <button id="install-btn" onclick="installApp()" class="w-full md:w-auto bg-white text-barber-black font-bold py-3 px-6 rounded-xl shadow-md hover:bg-gray-100 transition-colors flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-download"></i> Pasang Aplikasi
+                    </button>
+                </div>
+
+                <!-- Manage Capster -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-lg"><i class="fa-solid fa-users text-gray-400 mr-2"></i>Daftar Capster</h3>
+                        <button onclick="openAddModal('capster')" class="bg-gray-100 hover:bg-gray-200 text-barber-black px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">+ Tambah</button>
+                    </div>
+                    <ul id="setting-capster-list" class="divide-y divide-gray-100"></ul>
+                </div>
+
+                <!-- Manage Paket -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-lg"><i class="fa-solid fa-scissors text-gray-400 mr-2"></i>Daftar Layanan</h3>
+                        <button onclick="openAddModal('paket')" class="bg-gray-100 hover:bg-gray-200 text-barber-black px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">+ Tambah</button>
+                    </div>
+                    <ul id="setting-paket-list" class="divide-y divide-gray-100"></ul>
+                </div>
+
+                <!-- Manage Produk -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-lg"><i class="fa-solid fa-bottle-droplet text-gray-400 mr-2"></i>Produk Tambahan</h3>
+                        <button onclick="openAddModal('produk')" class="bg-gray-100 hover:bg-gray-200 text-barber-black px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">+ Tambah</button>
+                    </div>
+                    <ul id="setting-produk-list" class="divide-y divide-gray-100"></ul>
+                </div>
+                
+                <!-- Data Management -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                     <h3 class="font-bold text-lg text-barber-red"><i class="fa-solid fa-database mr-2"></i>Manajemen Data Lokal</h3>
+                     <p class="text-sm text-gray-500 mt-2 mb-4">Data disimpan di penyimpanan lokal browser (Offline Mode). Hapus data jika ingin memulai dari nol.</p>
+                     <button onclick="clearLocalData()" class="bg-red-50 hover:bg-red-100 text-barber-red font-bold py-2 px-4 rounded-lg border border-red-200 transition-colors text-sm">
+                         <i class="fa-solid fa-trash-can mr-1"></i> Reset Semua Data
+                     </button>
+                </div>
+            </div>
+
+            <!-- ================= TAB PROFILE ================= -->
+            <div id="tab-profile" class="tab-content hidden max-w-2xl mx-auto w-full space-y-6">
+                <h2 class="text-2xl font-bold px-2">Profil Saya</h2>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-6">
+                    <div class="relative"><img id="profile-img" src="https://placehold.co/150x150/ff3b30/ffffff?text=U" class="w-24 h-24 rounded-full border-4 border-gray-50 shadow-md"></div>
+                    <div><h3 class="text-xl font-bold text-barber-black" id="profile-name-display">Memuat...</h3><p class="text-gray-500 text-sm" id="profile-email-display">email@example.com</p><span class="inline-block mt-2 px-3 py-1 bg-red-100 text-barber-red text-xs font-bold rounded-full border border-red-200">Owner / Admin</span></div>
+                </div>
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="p-5 border-b border-gray-100"><h3 class="font-bold text-lg">Informasi Akun</h3></div>
+                    <div class="p-5 space-y-4">
+                        <div><label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Nama Lengkap</label><input type="text" id="input-profile-name" class="w-full bg-gray-50 border-gray-200" placeholder="Nama Lengkap"></div>
+                        <div><label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Email</label><input type="email" id="input-profile-email" class="w-full bg-gray-50 border-gray-200" disabled></div>
+                        <button onclick="saveProfile()" class="w-full bg-barber-black text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors mt-4">Simpan Perubahan</button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                    <button onclick="handleLogout()" class="w-full p-5 flex items-center justify-between hover:bg-red-50 transition-colors text-left group">
+                        <div class="flex items-center text-barber-red font-bold"><i class="fa-solid fa-arrow-right-from-bracket w-6"></i> Keluar Aplikasi</div>
+                        <i class="fa-solid fa-chevron-right text-gray-300 group-hover:text-barber-red"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ================= TAB SUPPORT ================= -->
+            <div id="tab-support" class="tab-content hidden max-w-3xl mx-auto w-full space-y-6">
+                <h2 class="text-2xl font-bold px-2">Bantuan & Dukungan</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <a href="https://wa.me/6281234567890" target="_blank" class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 text-center hover:shadow-md transition-shadow cursor-pointer block">
+                        <div class="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-ios-green text-2xl"><i class="fa-brands fa-whatsapp"></i></div>
+                        <h3 class="font-bold text-lg">WhatsApp Support</h3><p class="text-gray-500 text-sm mt-1">Respon cepat via Chat</p>
+                    </a>
+                    <a href="mailto:help@barberman.id" class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 text-center hover:shadow-md transition-shadow cursor-pointer block">
+                        <div class="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-ios-blue text-2xl"><i class="fa-regular fa-envelope"></i></div>
+                        <h3 class="font-bold text-lg">Email Support</h3><p class="text-gray-500 text-sm mt-1">help@barberman.id</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- FLOATING NAVBAR (Mobile) -->
+    <nav class="md:hidden fixed bottom-4 left-4 right-4 rounded-2xl bg-barber-black/95 backdrop-blur-md border border-gray-700 flex overflow-x-auto no-scrollbar items-center p-1.5 z-40 shadow-ios-lg gap-1">
+        <a href="#" onclick="switchTab('kasir')" class="mobile-nav-item active flex flex-col items-center p-2 min-w-[4rem] flex-1 rounded-xl transition-colors" data-tab="kasir"><div class="icon-container text-lg mb-1"><i class="fa-solid fa-calculator"></i></div><span class="text-[10px] font-semibold">Kasir</span></a>
+        <a href="#" onclick="switchTab('pembayaran')" class="mobile-nav-item flex flex-col items-center p-2 min-w-[4rem] flex-1 rounded-xl transition-colors" data-tab="pembayaran"><div class="icon-container text-lg mb-1"><i class="fa-solid fa-receipt"></i></div><span class="text-[10px] font-semibold">Bayar</span></a>
+        <a href="#" onclick="switchTab('laporan')" class="mobile-nav-item flex flex-col items-center p-2 min-w-[4rem] flex-1 rounded-xl transition-colors" data-tab="laporan"><div class="icon-container text-lg mb-1"><i class="fa-solid fa-chart-pie"></i></div><span class="text-[10px] font-semibold">Laporan</span></a>
+        <a href="#" onclick="switchTab('absensi')" class="mobile-nav-item flex flex-col items-center p-2 min-w-[4rem] flex-1 rounded-xl transition-colors" data-tab="absensi"><div class="icon-container text-lg mb-1"><i class="fa-solid fa-user-clock"></i></div><span class="text-[10px] font-semibold">Absen</span></a>
+        <a href="#" onclick="switchTab('support')" class="mobile-nav-item flex flex-col items-center p-2 min-w-[4rem] flex-1 rounded-xl transition-colors" data-tab="support"><div class="icon-container text-lg mb-1"><i class="fa-solid fa-headset"></i></div><span class="text-[10px] font-semibold">Bantuan</span></a>
+    </nav>
+
+    <!-- MODAL: ADD DATA -->
+    <div id="add-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-ios-lg overflow-hidden transform scale-95 transition-transform duration-300" id="add-modal-card">
+            <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <h3 class="font-bold text-lg text-barber-black" id="add-modal-title">Tambah Data</h3>
+                <button onclick="closeAddModal()" class="w-8 h-8 rounded-full bg-white flex items-center justify-center text-gray-500 hover:bg-gray-200 shadow-sm border border-gray-200"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nama</label>
+                    <input type="text" id="add-input-name" class="w-full" placeholder="Masukkan nama...">
+                </div>
+                <div id="add-price-container">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Harga (Rp)</label>
+                    <input type="number" id="add-input-price" class="w-full" placeholder="0">
+                </div>
+            </div>
+            <div class="p-4 bg-gray-50 border-t border-gray-100 flex gap-3">
+                <button onclick="closeAddModal()" class="flex-1 py-3 rounded-xl border border-gray-300 text-gray-600 font-bold hover:bg-white transition-colors">Batal</button>
+                <button onclick="saveNewData()" class="flex-1 py-3 rounded-xl bg-barber-red text-white font-bold hover:bg-red-600 shadow-md transition-colors">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PEMBAYARAN -->
+    <div id="payment-overlay" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden opacity-0 transition-opacity duration-300" onclick="closePaymentSheet()"></div>
+    <div id="payment-sheet" class="fixed bottom-0 left-0 w-full md:w-[500px] md:left-1/2 md:-translate-x-1/2 bg-barber-white rounded-t-3xl shadow-ios-lg z-50 transform translate-y-full transition-transform duration-300 flex flex-col max-h-[90vh]">
+        <div class="w-full flex justify-center pt-3 pb-2 cursor-pointer" onclick="closePaymentSheet()"><div class="w-12 h-1.5 bg-gray-300 rounded-full"></div></div>
+        <div class="px-6 pb-4 border-b border-gray-100 flex justify-between items-center"><h3 class="text-xl font-bold">Proses Pembayaran</h3><button onclick="closePaymentSheet()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200"><i class="fa-solid fa-xmark"></i></button></div>
+        <div class="flex-1 overflow-y-auto p-6 no-scrollbar space-y-6">
+            <div class="bg-gray-50 rounded-2xl p-4 border border-gray-200">
+                <div class="flex justify-between text-sm mb-2"><span class="text-gray-500">Customer:</span><span class="font-bold text-gray-800" id="sheet-nama">-</span></div>
+                <div class="flex justify-between text-sm mb-2"><span class="text-gray-500">Layanan:</span><span class="font-medium text-gray-800" id="sheet-layanan">-</span></div>
+                <div class="flex justify-between text-sm mb-4 border-b border-gray-200 pb-3"><span class="text-gray-500">Produk:</span><span class="font-medium text-right max-w-[60%] text-gray-800" id="sheet-produk">-</span></div>
+                <div class="flex justify-between items-end"><span class="text-gray-700 font-bold">Total Tagihan</span><span class="text-2xl font-black text-barber-red" id="sheet-total">Rp 0</span></div>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-gray-800 mb-3">Metode Pembayaran</label>
+                <div class="grid grid-cols-3 gap-2 md:gap-3">
+                    <label class="cursor-pointer"><input type="radio" name="pay-method" value="Tunai" class="peer sr-only" required checked onchange="togglePaymentMethod()"><div class="text-center py-3 px-1 rounded-xl border-2 border-transparent bg-gray-100 text-gray-600 peer-checked:bg-red-50 peer-checked:border-barber-red peer-checked:text-barber-red font-medium transition-all"><i class="fa-solid fa-money-bill-wave mb-1 block md:text-xl"></i> <span class="text-xs md:text-sm">Tunai</span></div></label>
+                    <label class="cursor-pointer"><input type="radio" name="pay-method" value="QRIS" class="peer sr-only" required onchange="togglePaymentMethod()"><div class="text-center py-3 px-1 rounded-xl border-2 border-transparent bg-gray-100 text-gray-600 peer-checked:bg-red-50 peer-checked:border-barber-red peer-checked:text-barber-red font-medium transition-all"><i class="fa-solid fa-qrcode mb-1 block md:text-xl"></i> <span class="text-xs md:text-sm">QRIS</span></div></label>
+                    <label class="cursor-pointer"><input type="radio" name="pay-method" value="Transfer" class="peer sr-only" required onchange="togglePaymentMethod()"><div class="text-center py-3 px-1 rounded-xl border-2 border-transparent bg-gray-100 text-gray-600 peer-checked:bg-red-50 peer-checked:border-barber-red peer-checked:text-barber-red font-medium transition-all"><i class="fa-solid fa-building-columns mb-1 block md:text-xl"></i> <span class="text-xs md:text-sm">Transfer</span></div></label>
+                </div>
+            </div>
+            <div id="dynamic-payment-content" class="min-h-[150px]">
+                <div id="cash-section" class="space-y-4">
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1 ml-1">Uang Diterima (Rp)</label><input type="number" id="pay-cash-amount" class="w-full text-xl font-bold bg-white border-gray-300" placeholder="0" oninput="calculateChange()"></div>
+                    <div class="flex justify-between items-center p-4 bg-green-50 rounded-xl border border-green-100"><span class="text-green-800 font-medium">Kembalian:</span><span class="text-2xl font-black text-ios-green" id="pay-change">Rp 0</span></div>
+                </div>
+                <div id="qris-section" class="hidden flex flex-col items-center p-4 bg-gray-50 rounded-xl border border-gray-200">
+                    <p class="text-sm text-gray-500 mb-2 text-center">Scan QRIS ini dengan E-Wallet/M-Banking</p>
+                    <div id="qrcode" class="p-3 bg-white rounded-xl shadow-sm border border-gray-100 mb-3"></div>
+                </div>
+                <div id="transfer-section" class="hidden p-4 bg-blue-50 rounded-xl border border-blue-100 space-y-3">
+                    <div class="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center">
+                        <div><p class="text-xs text-gray-400">BCA</p><p class="font-bold font-mono">1234 5678 90</p></div>
+                        <button class="text-ios-blue text-sm font-medium px-3 py-1 rounded-md bg-blue-50" onclick="copyText('1234567890')">Salin</button>
+                    </div>
+                </div>
+            </div>
+            <input type="hidden" id="current-trx-id" value="">
+        </div>
+        <div class="p-4 bg-white border-t border-gray-100 pb-safe md:pb-4 space-y-3">
+             <button onclick="finalizePayment()" class="w-full bg-ios-green text-white font-bold py-4 rounded-xl shadow-md hover:bg-green-600 transition-colors text-lg">Selesaikan Pembayaran</button>
+            <button onclick="closePaymentSheet()" class="w-full bg-gray-100 text-gray-600 font-semibold py-3.5 rounded-xl hover:bg-gray-200 transition-colors">Batalkan</button>
+        </div>
+    </div>
+
+    <!-- MODAL STRUK -->
+    <div id="struk-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-ios-lg overflow-hidden flex flex-col max-h-[90vh] transform scale-95 transition-transform duration-300" id="struk-card">
+            <div class="bg-gray-100 p-5 text-center border-b border-dashed border-gray-300">
+                <div class="w-12 h-12 bg-barber-black rounded-full flex items-center justify-center mx-auto mb-2"><i class="fa-solid fa-scissors text-white"></i></div>
+                <h2 class="font-bold text-xl tracking-tight">Barberman.id</h2>
+                <p class="text-xs text-gray-500" id="struk-date"></p>
+            </div>
+            <div class="p-6 flex-1 overflow-y-auto no-scrollbar text-sm space-y-3">
+                <div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">No. Antrian</span><span class="font-bold text-barber-black" id="struk-antrian">01</span></div>
+                <div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Customer</span><span class="font-medium" id="struk-nama">Budi</span></div>
+                <div class="flex justify-between border-b border-gray-100 pb-2"><span class="text-gray-500">Capster</span><span class="font-medium" id="struk-capster">Andi</span></div>
+                <div class="pt-2">
+                    <div class="flex justify-between font-medium"><span id="struk-paket-nama">Haircut</span><span id="struk-paket-harga">Rp 0</span></div>
+                    <div class="flex justify-between text-gray-500 text-xs mt-1 hidden" id="struk-produk-row"><span id="struk-produk-nama" class="max-w-[70%]">+ Produk</span><span id="struk-produk-harga">Rp 0</span></div>
+                </div>
+                <div class="border-t-2 border-dashed border-gray-300 pt-3 mt-3">
+                    <div class="flex justify-between font-black text-lg text-barber-black"><span>TOTAL</span><span id="struk-total">Rp 0</span></div>
+                    <div class="flex justify-between text-gray-500 mt-2 text-xs"><span>Metode</span><span id="struk-metode" class="font-medium bg-gray-100 px-2 py-0.5 rounded">Tunai</span></div>
+                    <div class="flex justify-between text-gray-500 mt-1 hidden" id="struk-bayar-row"><span>Tunai</span><span id="struk-bayar">Rp 0</span></div>
+                    <div class="flex justify-between text-gray-800 font-medium mt-1 hidden" id="struk-kembali-row"><span>Kembali</span><span id="struk-kembali">Rp 0</span></div>
+                </div>
+            </div>
+            <div class="p-4 bg-gray-50 border-t border-gray-200 grid grid-cols-2 gap-3">
+                <button onclick="closeStruk()" class="bg-white border border-gray-300 text-gray-700 py-3 rounded-xl font-medium shadow-sm hover:bg-gray-100">Tutup</button>
+                <button onclick="printStruk()" class="bg-barber-black text-white py-3 rounded-xl font-bold shadow-sm hover:bg-gray-800 flex items-center justify-center"><i class="fa-solid fa-print mr-2"></i> Cetak</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- TOAST -->
+    <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 bg-gray-800/90 backdrop-blur-sm text-white px-5 py-3 rounded-full shadow-lg text-sm font-medium z-[100] transition-opacity duration-300 opacity-0 pointer-events-none flex items-center">
+        <i class="fa-solid fa-circle-info mr-2"></i> <span id="toast-msg">Pesan di sini</span>
+    </div>
+
+    <script>
+        // --- Firebase Configuration ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCtVLpWt9_Bi4mhaqDzukahnZu9vOTMj9I",
+            authDomain: "barbermanid-e3082.firebaseapp.com",
+            projectId: "barbermanid-e3082",
+            storageBucket: "barbermanid-e3082.firebasestorage.app",
+            messagingSenderId: "516757337118",
+            appId: "1:516757337118:web:f11c24aeace9ffef216a0f",
+            measurementId: "G-EE97LGQ7ET"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const provider = new firebase.auth.GoogleAuthProvider();
+
+        // --- State & Config ---
+        let authMode = 'login';
+        
+        // DATA AWAL KOSONG (sesuai permintaan)
+        let dbMaster = { capster: [], paket: [], produk: [] };
+        let currentTotal = 0;
+        let transactions = [];
+        let attendance = [];
+        let qrCodeObj = null;
+        let isStoreOpen = false;
+        let storeOpenTime = null;
+        let currentAddType = ''; 
+        let deferredPrompt; // For PWA Install
+
+        // --- Init ---
+        window.onload = function() {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('current-date').innerText = new Date().toLocaleDateString('id-ID', options);
+            
+            loadLocalData(); // Load from localStorage
+            buildMasterUI();
+            updateStoreStatusUI();
+            renderTransactions();
+            renderAttendance();
+            initCharts();
+            updateReports();
+            checkNetworkStatus();
+            
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    updateUIForUser(user);
+                    document.getElementById('auth-page').classList.add('hidden');
+                } else {
+                    document.getElementById('auth-page').classList.remove('hidden');
+                    document.getElementById('sidebar-name').innerText = "Guest";
+                    document.getElementById('sidebar-img').src = "https://placehold.co/100x100/ff3b30/ffffff?text=G";
+                }
+            });
+        };
+
+        // --- PWA & Offline Logic ---
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Show install button
+            document.getElementById('install-btn').classList.remove('hidden');
+            document.getElementById('install-btn').innerText = "Pasang Sekarang";
+        });
+
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        showToast("Aplikasi sedang dipasang...");
+                    }
+                    deferredPrompt = null;
+                });
+            } else {
+                // Fallback for browsers that don't support prompt or already installed
+                showToast("Buka di browser Safari/Chrome > Pilih 'Add to Home Screen'");
+            }
+        }
+
+        function checkNetworkStatus() {
+            const banner = document.getElementById('offline-banner');
+            if (!navigator.onLine) {
+                banner.classList.remove('hidden');
+                banner.classList.add('translate-y-12'); // push down a bit
+            } else {
+                banner.classList.add('hidden');
+            }
+            window.addEventListener('online', () => {
+                banner.classList.add('hidden');
+                showToast("Koneksi kembali online. Data disinkronkan.");
+            });
+            window.addEventListener('offline', () => {
+                banner.classList.remove('hidden');
+                showToast("Anda sedang offline. Data disimpan lokal.");
+            });
+        }
+
+        function saveLocalData() {
+            const data = {
+                dbMaster,
+                transactions,
+                attendance
+            };
+            localStorage.setItem('barberman_data', JSON.stringify(data));
+        }
+
+        function loadLocalData() {
+            const rawData = localStorage.getItem('barberman_data');
+            if (rawData) {
+                try {
+                    const data = JSON.parse(rawData);
+                    dbMaster = data.dbMaster || { capster: [], paket: [], produk: [] };
+                    transactions = data.transactions || [];
+                    attendance = data.attendance || [];
+                } catch (e) {
+                    console.error("Error loading local data", e);
+                }
+            }
+        }
+
+        function clearLocalData() {
+            if(confirm('Yakin ingin mereset semua data? Ini tidak bisa dikembalikan.')) {
+                localStorage.removeItem('barberman_data');
+                dbMaster = { capster: [], paket: [], produk: [] };
+                transactions = [];
+                attendance = [];
+                buildMasterUI();
+                renderTransactions();
+                renderAttendance();
+                updateReports();
+                showToast("Data berhasil direset.");
+            }
+        }
+
+        // --- Auth Functions ---
+        function updateUIForUser(user) {
+            const displayName = user.displayName || "User";
+            const email = user.email || "email@example.com";
+            const photoURL = user.photoURL || `https://placehold.co/100x100/ff3b30/ffffff?text=${displayName.charAt(0)}`;
+
+            document.getElementById('sidebar-name').innerText = displayName;
+            document.getElementById('sidebar-img').src = photoURL;
+            document.getElementById('mobile-profile-img').src = photoURL;
+            document.getElementById('profile-name-display').innerText = displayName;
+            document.getElementById('profile-email-display').innerText = email;
+            document.getElementById('profile-img').src = photoURL;
+            document.getElementById('input-profile-name').value = displayName;
+            document.getElementById('input-profile-email').value = email;
+        }
+
+        function toggleAuthMode(mode) {
+            authMode = mode;
+            const loginTab = document.getElementById('tab-login');
+            const regTab = document.getElementById('tab-register');
+            const submitBtn = document.getElementById('auth-submit-btn');
+            const googleBtn = document.getElementById('google-btn-text');
+
+            if(mode === 'login') {
+                loginTab.className = "flex-1 py-2 text-sm font-bold rounded-lg bg-gray-700 text-white shadow-sm transition-all";
+                regTab.className = "flex-1 py-2 text-sm font-bold rounded-lg text-gray-400 hover:text-white transition-all";
+                submitBtn.innerText = "Masuk";
+                googleBtn.innerText = "Masuk dengan Google";
+            } else {
+                regTab.className = "flex-1 py-2 text-sm font-bold rounded-lg bg-gray-700 text-white shadow-sm transition-all";
+                loginTab.className = "flex-1 py-2 text-sm font-bold rounded-lg text-gray-400 hover:text-white transition-all";
+                submitBtn.innerText = "Daftar";
+                googleBtn.innerText = "Daftar dengan Google";
+            }
+        }
+
+        function handleGoogleLogin() {
+            auth.signInWithPopup(provider)
+                .then((result) => {
+                    showToast("Login Berhasil!");
+                    document.getElementById('auth-page').classList.add('hidden');
+                }).catch((error) => {
+                    console.error("Google Login Error:", error);
+                    showToast("Gagal login: " + error.message);
+                });
+        }
+
+        function handleAuthSubmit(e) {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const btn = document.getElementById('auth-submit-btn');
+            
+            btn.innerText = "Memproses...";
+            btn.disabled = true;
+
+            const promise = authMode === 'login' 
+                ? auth.signInWithEmailAndPassword(email, password) 
+                : auth.createUserWithEmailAndPassword(email, password);
+
+            promise
+                .then((userCredential) => {
+                    showToast(authMode === 'login' ? "Berhasil Masuk!" : "Pendaftaran Berhasil!");
+                    document.getElementById('auth-page').classList.add('hidden');
+                })
+                .catch((error) => {
+                    let msg = error.message;
+                    if(error.code === 'auth/wrong-password') msg = "Password salah.";
+                    if(error.code === 'auth/user-not-found') msg = "Email tidak ditemukan.";
+                    if(error.code === 'auth/email-already-in-use') msg = "Email sudah terdaftar.";
+                    if(error.code === 'auth/weak-password') msg = "Password minimal 6 karakter.";
+                    
+                    showToast("Error: " + msg);
+                    btn.innerText = authMode === 'login' ? "Masuk" : "Daftar";
+                    btn.disabled = false;
+                });
+        }
+
+        function handleLogout() {
+            auth.signOut().then(() => {
+                showToast("Anda telah keluar.");
+                toggleMobileProfileMenu();
+            }).catch((error) => {
+                console.error("Logout Error:", error);
+            });
+        }
+
+        function toggleMobileProfileMenu() {
+            document.getElementById('mobile-profile-menu').classList.toggle('hidden');
+        }
+
+        // --- Navigation ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            document.querySelectorAll('.mobile-nav-item').forEach(nav => nav.classList.remove('active'));
+
+            const desktopNav = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
+            if(desktopNav) desktopNav.classList.add('active');
+
+            const mobileNav = document.querySelector(`.mobile-nav-item[data-tab="${tabId}"]`);
+            if(mobileNav) mobileNav.classList.add('active');
+
+            if(tabId === 'laporan') { initCharts(); updateReports(); }
+            if(tabId === 'pembayaran') renderTransactions();
+        }
+
+        // --- Utilities ---
+        function formatRupiah(num) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num); }
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.remove('opacity-0');
+            setTimeout(() => toast.classList.add('opacity-0'), 3000);
+        }
+        function copyText(text) { navigator.clipboard.writeText(text).then(() => showToast("Nomor disalin!")); }
+
+        // --- Profile Functions ---
+        function saveProfile() {
+            const user = auth.currentUser;
+            const newName = document.getElementById('input-profile-name').value;
+
+            if(user && newName !== user.displayName) {
+                user.updateProfile({ displayName: newName }).then(() => {
+                    updateUIForUser(user);
+                    showToast("Profil berhasil diperbarui");
+                }).catch(error => showToast("Gagal update profil: " + error.message));
+            } else {
+                showToast("Tidak ada perubahan data");
+            }
+        }
+
+        // --- Master Data (Modal) ---
+        function openAddModal(type) {
+            currentAddType = type;
+            const modal = document.getElementById('add-modal');
+            const card = document.getElementById('add-modal-card');
+            const title = document.getElementById('add-modal-title');
+            const priceContainer = document.getElementById('add-price-container');
+
+            document.getElementById('add-input-name').value = '';
+            document.getElementById('add-input-price').value = '';
+
+            if(type === 'capster') {
+                title.innerText = "Tambah Capster";
+                priceContainer.classList.add('hidden');
+            } else {
+                title.innerText = type === 'paket' ? "Tambah Layanan" : "Tambah Produk";
+                priceContainer.classList.remove('hidden');
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); card.classList.remove('scale-95'); }, 10);
+        }
+
+        function closeAddModal() {
+            const modal = document.getElementById('add-modal');
+            const card = document.getElementById('add-modal-card');
+            modal.classList.add('opacity-0');
+            card.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function saveNewData() {
+            const nama = document.getElementById('add-input-name').value;
+            const harga = parseInt(document.getElementById('add-input-price').value) || 0;
+
+            if(!nama) { showToast("Nama harus diisi!"); return; }
+            if(currentAddType !== 'capster' && harga <= 0) { showToast("Harga harus valid!"); return; }
+
+            if(currentAddType === 'capster') {
+                dbMaster.capster.push({ id: Date.now(), nama, inisial: nama.charAt(0).toUpperCase() });
+            } else if(currentAddType === 'paket') {
+                dbMaster.paket.push({ id: Date.now(), nama, harga });
+            } else if(currentAddType === 'produk') {
+                dbMaster.produk.push({ id: Date.now(), nama, harga });
+            }
+
+            saveLocalData(); // Save to LocalStorage
+            buildMasterUI();
+            closeAddModal();
+            showToast("Data berhasil ditambahkan");
+        }
+
+        function removeMaster(type, idx) {
+            if(confirm('Hapus data ini?')) {
+                dbMaster[type].splice(idx, 1);
+                saveLocalData(); // Save to LocalStorage
+                buildMasterUI();
+                showToast('Data dihapus');
+            }
+        }
+
+        // --- Build UI ---
+        function buildMasterUI() {
+            // Capster
+            const cList = document.getElementById('k-capster-list');
+            if(dbMaster.capster.length === 0) {
+                cList.innerHTML = '<div class="text-center text-gray-400 text-sm w-full py-4">Belum ada capster. Tambah di Pengaturan.</div>';
+            } else {
+                cList.innerHTML = dbMaster.capster.map(c => `
+                    <label class="cursor-pointer flex flex-col items-center flex-shrink-0 relative">
+                        <input type="radio" name="k-capster" value="${c.nama}" class="peer sr-only" required>
+                        <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-transparent peer-checked:border-barber-red peer-checked:ring-4 peer-checked:ring-red-100 shadow-sm transition-all relative">
+                            <div class="w-full h-full bg-barber-black flex items-center justify-center text-white font-bold text-xl">${c.inisial}</div>
+                            <div class="overlay-check absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 transition-opacity"><i class="fa-solid fa-check text-white text-xl"></i></div>
+                        </div>
+                        <span class="text-xs font-medium mt-2 text-gray-500 peer-checked:text-barber-red peer-checked:font-bold">${c.nama}</span>
+                    </label>`).join('');
+            }
+            
+            // Paket
+            const pList = document.getElementById('k-paket');
+            let pOptions = '<option value="" disabled selected data-price="0">Pilih Paket...</option>';
+            if(dbMaster.paket.length === 0) {
+                pOptions += '<option value="" disabled>Data layanan kosong</option>';
+            } else {
+                pOptions += dbMaster.paket.map(p => `<option value="${p.nama}" data-price="${p.harga}">${p.nama} - ${formatRupiah(p.harga)}</option>`).join('');
+            }
+            pList.innerHTML = pOptions;
+            
+            // Produk
+            const prList = document.getElementById('k-produk-list');
+             if(dbMaster.produk.length === 0) {
+                prList.innerHTML = '<div class="col-span-4 text-center text-gray-400 text-sm py-4">Belum ada produk.</div>';
+            } else {
+                prList.innerHTML = dbMaster.produk.map(pr => `
+                    <label class="cursor-pointer relative">
+                        <input type="checkbox" name="k-produk" value="${pr.nama}" data-price="${pr.harga}" class="peer sr-only" onchange="calculateTotal()">
+                        <div class="bg-white border border-gray-200 rounded-xl p-3 peer-checked:border-barber-red peer-checked:bg-red-50 transition-all shadow-sm h-full flex flex-col relative overflow-hidden">
+                            <div class="text-sm font-bold text-gray-800 leading-tight mb-1 pr-4">${pr.nama}</div>
+                            <div class="text-xs text-barber-red font-bold mt-auto">${formatRupiah(pr.harga)}</div>
+                            <div class="absolute top-2 right-2 w-5 h-5 bg-barber-red text-white rounded-full flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity"><i class="fa-solid fa-check text-[10px]"></i></div>
+                        </div>
+                    </label>`).join('');
+            }
+
+            // Settings Lists
+            const mapList = (listId, type) => {
+                const el = document.getElementById(listId);
+                const data = dbMaster[type];
+                if(data.length === 0) {
+                    el.innerHTML = '<li class="py-4 text-center text-gray-400 text-sm">Data kosong</li>';
+                } else {
+                    el.innerHTML = data.map((item, i) => `
+                        <li class="py-3 flex justify-between items-center">
+                            <div>
+                                <div class="font-medium text-gray-700">${item.nama}</div>
+                                ${item.harga ? `<div class="text-xs text-gray-500">${formatRupiah(item.harga)}</div>` : ''}
+                            </div>
+                            <button onclick="removeMaster('${type}', ${i})" class="text-red-500 hover:bg-red-50 p-2 rounded-lg"><i class="fa-solid fa-trash-can"></i></button>
+                        </li>
+                    `).join('');
+                }
+            };
+            
+            mapList('setting-capster-list', 'capster');
+            mapList('setting-paket-list', 'paket');
+            mapList('setting-produk-list', 'produk');
+
+            // Absensi Dropdown
+            const aSel = document.getElementById('a-nama');
+            let aOpts = `<option value="" disabled selected>Pilih Staff...</option>`;
+            if(dbMaster.capster.length > 0) {
+                aOpts += dbMaster.capster.map(c => `<option value="${c.nama}">${c.nama}</option>`).join('');
+            } else {
+                aOpts += `<option value="" disabled>Tambahkan capster dulu</option>`;
+            }
+            aSel.innerHTML = aOpts;
+        }
+
+        // --- Core Logic ---
+        function toggleStoreStatus() {
+            isStoreOpen = document.getElementById('store-toggle').checked;
+            const now = new Date(); const timeStr = now.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
+            if(isStoreOpen) { storeOpenTime = timeStr; document.getElementById('store-time-info').innerText = `Buka: ${storeOpenTime} WIB | Tutup: -`; } 
+            else { document.getElementById('store-time-info').innerText = `Buka: ${storeOpenTime || '-'} WIB | Tutup: ${timeStr} WIB`; }
+            updateStoreStatusUI();
+            showToast(isStoreOpen ? "Toko Dibuka" : "Toko Ditutup");
+        }
+        function updateStoreStatusUI() {
+            const cb = document.getElementById('store-toggle'); cb.checked = isStoreOpen;
+            const dot = document.getElementById('store-toggle-dot'), bg = document.getElementById('store-toggle-bg'), text = document.getElementById('store-status-text');
+            if(isStoreOpen) { dot.style.transform='translateX(1.5rem)'; bg.classList.replace('bg-gray-300','bg-ios-green'); text.innerText='OPEN'; text.classList.replace('text-gray-500','text-ios-green'); } 
+            else { dot.style.transform='translateX(0)'; bg.classList.replace('bg-ios-green','bg-gray-300'); text.innerText='CLOSED'; text.classList.replace('text-ios-green','text-gray-500'); }
+        }
+
+        function calculateTotal() {
+            const pkt = document.getElementById('k-paket');
+            let tPkt = pkt.selectedIndex > 0 ? parseInt(pkt.options[pkt.selectedIndex].dataset.price) : 0;
+            let tPrd = 0; document.querySelectorAll('input[name="k-produk"]:checked').forEach(e => tPrd += parseInt(e.dataset.price));
+            currentTotal = tPkt + tPrd;
+            document.getElementById('k-total-display').innerText = formatRupiah(currentTotal);
+        }
+
+        function processTransaction() {
+            const cap = document.querySelector('input[name="k-capster"]:checked');
+            if(dbMaster.capster.length === 0) { showToast("Tambahkan capster dulu di Pengaturan!"); return; }
+            if(!document.getElementById('k-antrian').value || !document.getElementById('k-nama').value || !document.getElementById('k-paket').value || !cap) { showToast("Lengkapi form!"); return; }
+            
+            const pkt = document.getElementById('k-paket');
+            let pNames = [], pPrice = 0;
+            document.querySelectorAll('input[name="k-produk"]:checked').forEach(e => { pNames.push(e.value); pPrice += parseInt(e.dataset.price); });
+            
+            transactions.unshift({
+                id: Date.now(), antrian: document.getElementById('k-antrian').value, nama: document.getElementById('k-nama').value,
+                capster: cap.value, paketName: pkt.options[pkt.selectedIndex].text.split(' - ')[0], paketPrice: parseInt(pkt.options[pkt.selectedIndex].dataset.price),
+                produkName: pNames.length > 0 ? pNames.join(', ') : null, produkPrice: pPrice, catatan: document.getElementById('k-catatan').value,
+                total: currentTotal, status: 'belum', metode: '-', date: new Date()
+            });
+            
+            saveLocalData(); // Save data
+            document.getElementById('kasir-form').reset(); currentTotal = 0; document.getElementById('k-total-display').innerText = 'Rp 0';
+            showToast("Orderan Dibuat!"); switchTab('pembayaran');
+        }
+
+        function filterTrx(filter, btn) {
+            Array.from(btn.parentElement.children).forEach(b => { b.classList.remove('bg-barber-black', 'text-white', 'shadow-sm'); b.classList.add('text-gray-500'); });
+            btn.classList.remove('text-gray-500'); btn.classList.add('bg-barber-black', 'text-white', 'shadow-sm');
+            renderTransactions(filter);
+        }
+        function renderTransactions(filter = 'semua') {
+            const list = document.getElementById('transaction-list'); list.innerHTML = '';
+            const filtered = transactions.filter(t => filter === 'semua' || t.status === filter);
+            if(filtered.length === 0) { list.innerHTML = '<div class="text-center py-10 bg-white rounded-2xl border border-dashed border-gray-300 text-gray-400">Tidak ada tagihan</div>'; return; }
+            filtered.forEach(trx => {
+                const isLunas = trx.status === 'lunas';
+                const statusHtml = isLunas ? `<span class="bg-green-100 text-ios-green px-2 py-0.5 rounded text-xs font-bold border border-green-200">Lunas</span>` : `<span class="bg-red-100 text-barber-red px-2 py-0.5 rounded text-xs font-bold border border-red-200">Belum Bayar</span>`;
+                const btnHtml = isLunas ? `<button onclick='prepareStruk(${JSON.stringify(trx)})' class="w-full mt-3 py-2 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50"><i class="fa-solid fa-receipt mr-1"></i> Lihat Struk</button>` : `<button onclick="openPaymentForExisting(${trx.id})" class="w-full mt-3 py-2.5 rounded-xl bg-barber-black text-white font-bold text-sm hover:bg-gray-800 shadow-md">Bayar Sekarang</button>`;
+                list.innerHTML += `<div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">${isLunas ? '' : '<div class="absolute left-0 top-0 bottom-0 w-1 bg-barber-red"></div>'}<div class="flex justify-between items-start mb-3"><div class="flex items-center"><div class="w-12 h-12 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center font-black text-gray-700 text-lg mr-3 shadow-inner">${trx.antrian}</div><div><h4 class="font-bold text-barber-black text-lg leading-tight">${trx.nama}</h4><p class="text-xs text-gray-500">Capster: <span class="font-semibold text-gray-700">${trx.capster}</span></p></div></div>${statusHtml}</div><div class="bg-gray-50 p-3 rounded-xl border border-gray-100 text-sm mb-3"><div class="font-semibold text-gray-700">${trx.paketName}</div>${trx.produkName ? `<div class="text-gray-500 text-xs mt-1">+ ${trx.produkName}</div>` : ''}</div><div class="flex justify-between items-end"><div class="text-xs text-gray-400">Metode: <span class="font-bold text-gray-600">${trx.metode}</span></div><div class="font-black text-xl tracking-tight">${formatRupiah(trx.total)}</div></div>${btnHtml}</div>`;
+            });
+        }
+
+        function preparePaymentSheet(trx) {
+            document.getElementById('sheet-nama').innerText = trx.nama; document.getElementById('sheet-layanan').innerText = trx.paketName;
+            const pEl = document.getElementById('sheet-produk'); if(trx.produkName) { pEl.innerText = trx.produkName; pEl.parentElement.classList.remove('hidden'); } else pEl.parentElement.classList.add('hidden');
+            document.getElementById('sheet-total').innerText = formatRupiah(trx.total); document.getElementById('pay-cash-amount').value = ''; document.getElementById('pay-change').innerText = 'Rp 0'; document.getElementById('current-trx-id').value = trx.id;
+            document.querySelector('input[name="pay-method"][value="Tunai"]').checked = true; togglePaymentMethod();
+        }
+        function togglePaymentMethod() {
+            const m = document.querySelector('input[name="pay-method"]:checked').value;
+            ['cash-section', 'qris-section', 'transfer-section'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            if(m==='Tunai') document.getElementById('cash-section').classList.remove('hidden');
+            else if(m==='QRIS') { document.getElementById('qris-section').classList.remove('hidden'); generateQR(); }
+            else document.getElementById('transfer-section').classList.remove('hidden');
+        }
+        function calculateChange() {
+            const a = parseInt(document.getElementById('pay-cash-amount').value)||0, t = transactions.find(x => x.id == document.getElementById('current-trx-id').value);
+            if(t) document.getElementById('pay-change').innerText = formatRupiah(Math.max(0, a - t.total));
+        }
+        function generateQR() { const container = document.getElementById("qrcode"); container.innerHTML = ""; new QRCode(container, { text: "DUMMY_QRIS_DATA", width: 160, height: 160, colorDark: "#1c1c1e", colorLight: "#ffffff" }); }
+        function finalizePayment() {
+            const id = document.getElementById('current-trx-id').value, m = document.querySelector('input[name="pay-method"]:checked').value;
+            const idx = transactions.findIndex(t => t.id == id);
+            if(idx !== -1) {
+                if(m==='Tunai') {
+                    const cash = parseInt(document.getElementById('pay-cash-amount').value)||0;
+                    if(cash < transactions[idx].total) { showToast("Uang tunai kurang!"); return; }
+                    transactions[idx].bayar = cash; transactions[idx].kembali = cash - transactions[idx].total;
+                }
+                transactions[idx].status = 'lunas'; transactions[idx].metode = m;
+                saveLocalData(); // Save data
+                closePaymentSheet(); showToast("Pembayaran Sukses!"); prepareStruk(transactions[idx]); renderTransactions(); updateReports();
+            }
+        }
+        function openPaymentSheet() { const ov = document.getElementById('payment-overlay'), sh = document.getElementById('payment-sheet'); ov.classList.remove('hidden'); setTimeout(()=> { ov.classList.remove('opacity-0'); sh.classList.remove('translate-y-full'); }, 10); }
+        function closePaymentSheet() { const ov = document.getElementById('payment-overlay'), sh = document.getElementById('payment-sheet'); sh.classList.add('translate-y-full'); ov.classList.add('opacity-0'); setTimeout(()=> ov.classList.add('hidden'), 300); }
+        function openPaymentForExisting(id) { const t = transactions.find(x => x.id == id); if(t) { preparePaymentSheet(t); openPaymentSheet(); } }
+
+        function prepareStruk(t) {
+            document.getElementById('struk-antrian').innerText = t.antrian; document.getElementById('struk-nama').innerText = t.nama; document.getElementById('struk-capster').innerText = t.capster;
+            document.getElementById('struk-paket-nama').innerText = t.paketName; document.getElementById('struk-paket-harga').innerText = formatRupiah(t.paketPrice);
+            if(t.produkName) { document.getElementById('struk-produk-nama').innerText = '+ '+t.produkName; document.getElementById('struk-produk-harga').innerText = formatRupiah(t.produkPrice); document.getElementById('struk-produk-row').classList.remove('hidden'); document.getElementById('struk-produk-row').classList.add('flex'); } else { document.getElementById('struk-produk-row').classList.add('hidden'); document.getElementById('struk-produk-row').classList.remove('flex'); }
+            document.getElementById('struk-total').innerText = formatRupiah(t.total); document.getElementById('struk-metode').innerText = t.metode;
+            if(t.metode==='Tunai' && t.bayar) { document.getElementById('struk-bayar').innerText=formatRupiah(t.bayar); document.getElementById('struk-kembali').innerText=formatRupiah(t.kembali); document.getElementById('struk-bayar-row').classList.replace('hidden','flex'); document.getElementById('struk-kembali-row').classList.replace('hidden','flex'); } else { document.getElementById('struk-bayar-row').classList.replace('flex','hidden'); document.getElementById('struk-kembali-row').classList.replace('flex','hidden'); }
+            document.getElementById('struk-date').innerText = new Date(t.date).toLocaleString('id-ID',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+            const modal = document.getElementById('struk-modal'), card = document.getElementById('struk-card'); modal.classList.remove('hidden'); setTimeout(()=>{ modal.classList.remove('opacity-0'); card.classList.remove('scale-95'); },10);
+        }
+        function closeStruk() { const modal = document.getElementById('struk-modal'), card = document.getElementById('struk-card'); modal.classList.add('opacity-0'); card.classList.add('scale-95'); setTimeout(()=>modal.classList.add('hidden'),300); }
+        function printStruk() { showToast("Mencetak..."); setTimeout(closeStruk,1000); }
+
+        function submitAbsen() {
+            const nama = document.getElementById('a-nama').value, stat = document.querySelector('input[name="a-status"]:checked').value;
+            if(!nama) { showToast("Pilih staff!"); return; }
+            attendance.unshift({ nama, status: stat, time: new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) });
+            saveLocalData(); // Save data
+            showToast("Absen sukses"); renderAttendance(); document.getElementById('absensi-form').reset();
+        }
+        function renderAttendance() {
+            const list = document.getElementById('attendance-list'); list.innerHTML = '';
+            if(!attendance.length) { list.innerHTML = '<div class="p-4 text-center text-gray-400 text-sm">Belum ada data hari ini</div>'; return; }
+            attendance.forEach(a => {
+                const color = a.status === 'Hadir' ? 'text-ios-green' : 'text-barber-red';
+                list.innerHTML += `<div class="p-4 flex justify-between items-center bg-white"><div class="flex items-center"><div class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center mr-3 border border-gray-100 ${color}"><i class="fa-solid fa-user-check"></i></div><div><div class="font-bold">${a.nama}</div><div class="text-xs text-gray-500">Capster</div></div></div><div class="text-right"><div class="text-sm font-bold ${color}">${a.status}</div><div class="text-xs text-gray-400 font-mono">${a.time}</div></div></div>`;
+            });
+        }
+
+        let chartWeekly, chartSvc;
+        function initCharts() {
+            if(typeof Chart === 'undefined') return;
+            Chart.defaults.font.family = 'Inter, sans-serif'; Chart.defaults.color = '#8e8e93';
+            if(!chartWeekly && document.getElementById('weeklyChart')) { chartWeekly = new Chart(document.getElementById('weeklyChart').getContext('2d'), { type: 'bar', data: {labels:[],datasets:[]}, options: {responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{borderDash:[4,4]}},x:{grid:{display:false}}}}}); }
+            if(!chartSvc && document.getElementById('serviceChart')) { chartSvc = new Chart(document.getElementById('serviceChart').getContext('2d'), { type: 'doughnut', data: {labels:[],datasets:[]}, options: {responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:10,usePointStyle:true}}},cutout:'75%'}}); }
+        }
+        function updateReports() {
+            const lunas = transactions.filter(t => t.status === 'lunas');
+            document.getElementById('rep-total-trx').innerText = lunas.length;
+            const inc = lunas.reduce((s,t)=>s+t.total,0);
+            document.getElementById('rep-today-income').innerText = formatRupiah(inc);
+            document.getElementById('rep-monthly-income').innerText = formatRupiah(inc * 30);
+            const capCounts = {}; lunas.forEach(t => capCounts[t.capster] = (capCounts[t.capster]||0)+1);
+            let topC = '-', maxC = 0; for(let c in capCounts) { if(capCounts[c]>maxC) { maxC=capCounts[c]; topC=c; } }
+            document.getElementById('rep-top-capster').innerText = topC; document.getElementById('rep-top-capster-count').innerText = `${maxC} pelanggan`;
+            const tb = document.getElementById('recent-trx-table'); tb.innerHTML = '';
+            lunas.slice(0,5).forEach(t => { tb.innerHTML += `<tr class="hover:bg-gray-50 transition-colors"><td class="px-6 py-4 font-mono text-xs text-gray-500">${new Date(t.date).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}</td><td class="px-6 py-4 font-medium text-gray-800">${t.nama}</td><td class="px-6 py-4 text-xs">${t.paketName}</td><td class="px-6 py-4 text-right font-bold text-barber-black">${formatRupiah(t.total)}</td></tr>`; });
+            if(chartWeekly) { chartWeekly.data={labels:['Sen','Sel','Rab','Kam','Jum','Sab','Min'],datasets:[{data:[10,12,15,14,20,lunas.length+25,0],backgroundColor:'#1c1c1e',borderRadius:6}]}; chartWeekly.update(); }
+            if(chartSvc) { chartSvc.data={labels:['Premium','Basic','Kids'],datasets:[{data:[5,10,3],backgroundColor:['#1c1c1e','#ff3b30','#34c759'],borderWidth:0}]}; chartSvc.update(); }
+        }
+    </script>
+</body>
+</html>
